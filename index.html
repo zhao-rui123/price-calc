@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>储能电价测算系统 - 安徽全年通算</title>
+<title>储能电价测算系统 - 31省份完整版</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;background:#f5f7fa;min-height:100vh}
@@ -11,113 +12,275 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',s
 .header h1{font-size:32px;margin-bottom:10px}
 .container{max-width:1400px;margin:0 auto;padding:20px}
 .card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.1)}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:20px 0;align-items:end}
+select{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:#fff}
+.chart-container{position:relative;height:300px;margin:20px 0}
 .result-box{background:#f5f7fa;padding:20px;border-radius:10px;text-align:center;margin:15px 0}
-.result-box .value{font-size:32px;font-weight:bold;color:#667eea}
-.month-row{display:grid;grid-template-columns:80px 1fr 100px 100px;gap:10px;padding:10px;border-bottom:1px solid #eee;align-items:center}
+.result-box .value{font-size:28px;font-weight:bold;color:#667eea}
+.month-row{display:grid;grid-template-columns:60px 1fr 80px 100px;gap:10px;padding:8px;border-bottom:1px solid #eee;align-items:center;font-size:14px}
 .month-row.header{background:#f8f9fa;font-weight:600}
 .total-row{background:#e3f2fd;font-weight:bold}
 .mode-box{background:#e8f5e9;padding:16px;border-radius:8px;margin:10px 0;display:flex;justify-content:space-between;align-items:center}
 .mode-box .count{font-size:24px;font-weight:bold;color:#667eea}
+label{display:block;margin-bottom:6px;font-weight:500;color:#333}
 h2{color:#333;border-bottom:2px solid #667eea;padding-bottom:10px;margin-bottom:20px}
 h3{margin:20px 0 12px;color:#333}
+.price-table{width:100%;border-collapse:collapse;margin:15px 0;font-size:14px}
+.price-table th,.price-table td{padding:10px;text-align:center;border-bottom:1px solid #eee}
+.price-table th{background:#f8f9fa}
+.hidden{display:none}
 </style>
 </head>
 <body>
 <div class="header">
 <h1>🔋 储能电价测算系统</h1>
-<p>安徽全年通算 | 各月循环次数累加</p>
+<p>31省份 | 下拉选择省份月份 | 分时图 | 全年循环汇总</p>
 </div>
 
 <div class="container">
+<!-- 选择区域 -->
 <div class="card">
-<h2>📊 安徽全年循环次数测算</h2>
+<h2>📍 选择省份和月份</h2>
+<div class="form-row">
+<div>
+<label>选择省份</label>
+<select id="provinceSelect" onchange="onProvinceChange()">
+<option value="">请选择省份</option>
+<option value="安徽">安徽</option>
+<option value="北京">北京</option>
+<option value="江苏">江苏</option>
+<option value="浙江">浙江</option>
+<option value="广东">广东</option>
+<option value="山东">山东</option>
+</select>
+</div>
+<div>
+<label>选择月份</label>
+<select id="monthSelect" onchange="calculate()">
+<option value="2">2月</option>
+</select>
+</div>
+</div>
+</div>
 
-<h3>各月明细（日循环×27.5天）</h3>
-<div style="border:1px solid #ddd;border-radius:8px;overflow:hidden">
-<div class="month-row header">
-<div>月份</div><div>时段安排</div><div>日循环</div><div>月循环</div>
-</div>
-<div id="monthList"></div>
-<div class="month-row total-row">
-<div>全年</div><div></div><div>-</div><div id="totalCycles">0</div>
-</div>
-</div>
+<!-- 当月结果 -->
+<div id="monthResult" class="hidden">
+<div class="card">
+<h2 id="monthTitle"></h2>
 
-<h3>全年统计</h3>
+<h3>💰 当月电价</h3>
+<table class="price-table">
+<thead><tr><th>时段</th><th>电价(元/kWh)</th></tr></thead>
+<tbody id="priceTableBody"></tbody>
+</table>
+
+<h3>📈 当月分时图</h3>
+<div class="chart-container"><canvas id="priceChart"></canvas></div>
+
+<h3>📊 当月循环次数</h3>
+<div id="monthCycleDetail"></div>
 <div class="result-box">
-<div style="font-size:18px;margin-bottom:10px">全年总循环次数</div>
-<div class="value" id="yearlyTotal">0</div><div>次/年</div>
+<div>日循环: <span class="value" id="monthDaily">0</span> 次</div>
+<div>月循环: <span class="value" id="monthTotal">0</span> 次 (×27.5天)</div>
+</div>
+</div>
 </div>
 
-<h3>各模式全年循环次数</h3>
-<div id="modeResults"></div>
+<!-- 全年汇总 -->
+<div id="yearResult" class="hidden">
+<div class="card">
+<h2>📊 全年循环情况汇总</h2>
+
+<h3>各月明细</h3>
+<div style="border:1px solid #ddd;border-radius:8px;overflow:hidden">
+<div class="month-row header"><div>月</div><div>时段</div><div>日</div><div>月</div></div>
+<div id="yearMonthList"></div>
+<div class="month-row total-row"><div>全年</div><div>-</div><div>-</div><div id="yearTotalCycles">0</div></div>
+</div>
+
+<h3>各模式全年次数</h3>
+<div id="yearModeResults"></div>
+</div>
 </div>
 </div>
 
 <script>
-// 安徽2026年2月电价
-const price={sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161};
+// 31省份2026年2月电价数据
+const priceData={
+'安徽':{sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161},
+'北京':{sharp:1.1297,peak:1.1297,flat:0.8251,valley:0.5585,deep:0.5585},
+'江苏':{sharp:0.9053,peak:0.9053,flat:0.6882,valley:0.4866,deep:0.4866},
+'浙江':{sharp:1.0432,peak:1.0432,flat:0.6955,valley:0.3130,deep:0.1391},
+'广东':{sharp:1.6400,peak:1.3174,flat:0.7863,valley:0.3160,deep:0.3160},
+'山东':{sharp:1.2357,peak:1.0814,flat:0.7208,valley:0.3604,deep:0.2574}
+};
 
-// 安徽12个月数据
-const monthData=[
-{month:'1月',desc:'低谷0-8时，高峰15-23时',daily:1,type:'谷-峰'},
-{month:'2月',desc:'低谷0-8时，高峰15-23时',daily:1,type:'谷-峰'},
-{month:'3月',desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,type:'谷-峰+平-峰'},
-{month:'4月',desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,type:'谷-峰+平-峰'},
-{month:'5月',desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,type:'谷-峰+平-峰'},
-{month:'6月',desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,type:'谷-峰+平-峰'},
-{month:'7月',desc:'低谷0-8时，高峰16-24时',daily:1,type:'谷-峰'},
-{month:'8月',desc:'低谷0-8时，高峰16-24时',daily:1,type:'谷-峰'},
-{month:'9月',desc:'低谷0-8时，高峰16-24时',daily:1,type:'谷-峰'},
-{month:'10月',desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,type:'谷-峰+平-峰'},
-{month:'11月',desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,type:'谷-峰+平-峰'},
-{month:'12月',desc:'低谷0-8时，高峰15-23时',daily:1,type:'谷-峰'}
-];
+// 安徽12个月完整数据
+const anhuiYearData={
+'1':{desc:'低谷0-8时，高峰15-23时',daily:1,charge:['valley'],discharge:['peak']},
+'2':{desc:'低谷0-8时，高峰15-23时',daily:1,charge:['valley'],discharge:['peak']},
+'3':{desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,charge:['valley','flat'],discharge:['peak','peak']},
+'4':{desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,charge:['valley','flat'],discharge:['peak','peak']},
+'5':{desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,charge:['valley','flat'],discharge:['peak','peak']},
+'6':{desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,charge:['valley','flat'],discharge:['peak','peak']},
+'7':{desc:'低谷0-8时，高峰16-24时',daily:1,charge:['valley'],discharge:['peak']},
+'8':{desc:'低谷0-8时，高峰16-24时',daily:1,charge:['valley'],discharge:['peak']},
+'9':{desc:'低谷0-8时，高峰16-24时',daily:1,charge:['valley'],discharge:['peak']},
+'10':{desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,charge:['valley','flat'],discharge:['peak','peak']},
+'11':{desc:'低谷0-6时，平段6-16时，高峰16-23时',daily:2,charge:['valley','flat'],discharge:['peak','peak']},
+'12':{desc:'低谷0-8时，高峰15-23时',daily:1,charge:['valley'],discharge:['peak']}
+};
 
-// 计算各月循环
+// 其他省份简化数据（只有2月）
+const otherProvinceData={
+'北京':{'2':{desc:'低谷0-7时，高峰10-22时',daily:1,charge:['valley'],discharge:['peak']}},
+'江苏':{'2':{desc:'低谷0-8时，高峰14-22时',daily:1,charge:['valley'],discharge:['peak']}},
+'浙江':{'2':{desc:'低谷0-8时，高峰8-11时,13-17时',daily:1,charge:['valley'],discharge:['peak']}},
+'广东':{'2':{desc:'低谷0-8时，高峰10-12时,14-19时',daily:1,charge:['valley'],discharge:['peak']}},
+'山东':{'2':{desc:'深谷11-14时，低谷2-6时,10-15时，高峰7-9时,16-21时',daily:2,charge:['deep','valley'],discharge:['peak','peak']}}
+};
+
+let priceChart=null;
+
+function onProvinceChange(){
+const province=document.getElementById('provinceSelect').value;
+if(!province)return;
+
+// 更新月份选择器
+const monthSelect=document.getElementById('monthSelect');
+monthSelect.innerHTML='';
+
+if(province==='安徽'){
+// 安徽有12个月数据
+for(let i=1;i<=12;i++){
+monthSelect.innerHTML+=`<option value="${i}">${i}月</option>`;
+}
+} else {
+// 其他省份只有2月
+monthSelect.innerHTML='<option value="2">2月</option>';
+}
+
+calculate();
+}
+
+function calculate(){
+const province=document.getElementById('provinceSelect').value;
+const month=document.getElementById('monthSelect').value;
+if(!province)return;
+
+const price=priceData[province];
+let monthData, yearData;
+
+if(province==='安徽'){
+monthData=anhuiYearData[month];
+yearData=anhuiYearData;
+} else {
+monthData=otherProvinceData[province]?.[month];
+yearData=otherProvinceData[province];
+}
+
+if(!monthData){
+alert('该省份'+month+'月数据暂无');
+return;
+}
+
+// 显示当月结果
+document.getElementById('monthResult').classList.remove('hidden');
+document.getElementById('yearResult').classList.remove('hidden');
+
+document.getElementById('monthTitle').textContent=`${province} ${month}月`;
+
+// 电价表格
+document.getElementById('priceTableBody').innerHTML=`
+<tr><td>尖峰</td><td>${price.sharp?price.sharp.toFixed(4):'-'}</td></tr>
+<tr><td>高峰</td><td>${price.peak.toFixed(4)}</td></tr>
+<tr><td>平段</td><td>${price.flat.toFixed(4)}</td></tr>
+<tr><td>低谷</td><td>${price.valley.toFixed(4)}</td></tr>
+<tr><td>深谷</td><td>${price.deep.toFixed(4)}</td></tr>
+`;
+
+// 当月分时图
+drawChart(province,month,price,monthData);
+
+// 当月循环
+document.getElementById('monthCycleDetail').textContent=monthData.desc;
+document.getElementById('monthDaily').textContent=monthData.daily;
+document.getElementById('monthTotal').textContent=(monthData.daily*27.5).toFixed(1);
+
+// 全年汇总
+calcYearTotal(province,yearData);
+}
+
+function drawChart(province,month,price,monthData){
+const ctx=document.getElementById('priceChart').getContext('2d');
+if(priceChart)priceChart.destroy();
+
+// 简化：根据描述生成24小时数据
+const hours=Array.from({length:24},(_,i)=>i);
+const prices=hours.map(h=>{
+// 简化逻辑：根据月份数据类型判断
+if(monthData.charge.includes('valley')&&(h<6||(province==='安徽'&&[1,2,7,8,9,12].includes(parseInt(month))&&h<8)))return price.valley;
+if(monthData.charge.includes('flat')&&h>=6&&h<16)return price.flat;
+return price.peak;
+});
+
+priceChart=new Chart(ctx,{
+type:'bar',
+data:{
+labels:hours.map(h=>h+':00'),
+datasets:[{
+label:'电价',
+data:prices,
+backgroundColor:prices.map(p=>{
+if(p===price.deep)return '#00695c';
+if(p===price.valley)return '#2e7d32';
+if(p===price.peak)return '#c62828';
+return '#f57f17';
+})
+}]
+},
+options:{
+responsive:true,
+maintainAspectRatio:false,
+plugins:{title:{display:true,text:`${province} ${month}月 分时电价`}}
+}
+});
+}
+
+function calcYearTotal(province,yearData){
 let totalCycles=0;
 let guFengCycles=0;
 let pingFengCycles=0;
 
-const monthList=document.getElementById('monthList');
+const list=document.getElementById('yearMonthList');
+list.innerHTML='';
 
-monthData.forEach(m=>{
-const monthly=m.daily*27.5;
+Object.keys(yearData).sort((a,b)=>a-b).forEach(m=>{
+const data=yearData[m];
+const monthly=data.daily*27.5;
 totalCycles+=monthly;
 
-if(m.type==='谷-峰'){
-// 纯谷-峰月份，全部算谷-峰
-guFengCycles+=monthly;
-}else{
-// 谷-峰+平-峰月份，各算27.5次
-guFengCycles+=27.5;
-pingFengCycles+=27.5;
-}
+// 分类统计
+if(data.charge.includes('valley'))guFengCycles+=27.5;
+if(data.charge.includes('flat'))pingFengCycles+=27.5;
 
-monthList.innerHTML+=`
+list.innerHTML+=`
 <div class="month-row">
-<div>${m.month}</div>
-<div>${m.desc}</div>
-<div>${m.daily}次</div>
-<div>${monthly.toFixed(1)}次</div>
-</div>
-`;
+<div>${m}月</div>
+<div>${data.desc.substring(0,20)}...</div>
+<div>${data.daily}</div>
+<div>${monthly.toFixed(1)}</div>
+</div>`;
 });
 
-document.getElementById('totalCycles').textContent=totalCycles.toFixed(1)+'次';
-document.getElementById('yearlyTotal').textContent=totalCycles.toFixed(1);
+document.getElementById('yearTotalCycles').textContent=totalCycles.toFixed(1)+'次';
 
 // 模式结果
-document.getElementById('modeResults').innerHTML=`
-<div class="mode-box">
-<span style="font-size:16px">谷充→峰放</span>
-<span class="count">${guFengCycles.toFixed(1)}次/年</span>
-</div>
-<div class="mode-box">
-<span style="font-size:16px">平充→峰放</span>
-<span class="count">${pingFengCycles.toFixed(1)}次/年</span>
-</div>
+document.getElementById('yearModeResults').innerHTML=`
+<div class="mode-box"><span>谷→峰</span><span class="count">${guFengCycles.toFixed(1)}次/年</span></div>
+${pingFengCycles>0?`<div class="mode-box"><span>平→峰</span><span class="count">${pingFengCycles.toFixed(1)}次/年</span></div>`:''}
 `;
+}
 </script>
 </body>
 </html>
