@@ -32,18 +32,19 @@ label{display:block;margin-bottom:6px;font-weight:500;color:#333}
 h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px}
 .calc-detail{background:#f8f9fa;padding:12px;border-radius:8px;margin:8px 0;font-size:14px}
 .month-badge{display:inline-block;padding:4px 12px;border-radius:4px;background:#667eea;color:white;font-size:12px;margin-right:8px}
+.continuous-box{background:#fff3e0;padding:8px 12px;border-radius:6px;margin:4px 0;font-size:13px}
 </style>
 </head>
 <body>
 <div class="header">
 <h1>🔋 储能电价测算系统</h1>
-<p>31省份 | 2026年2月电价 | 12个月时段数据 | 双方法计算</p>
+<p>31省份 | 2026年2月电价 | 12个月时段 | 连续时段只算一次</p>
 </div>
 
 <div class="container">
 <div class="card">
 <h2>📍 选择省份和月份</h2>
-<div class="alert">选择省份和月份，查看当月电价和循环次数测算</div>
+<div class="alert">选择省份和月份，连续时段只算一次充放电</div>
 <div class="form-row">
 <div>
 <label>选择省份</label>
@@ -83,18 +84,17 @@ h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:
 </div>
 
 <div class="card">
-<h3>📊 当月时段划分</h3>
-<div id="timeSlots"></div>
+<h3>📊 当月时段划分（连续时段）</h3>
+<div id="continuousSlots"></div>
 </div>
 
 <div class="card">
-<h3>🔍 循环次数计算（双方法）</h3>
-<h4>方法一：时间顺序遍历法</h4>
-<div id="method1Detail" class="calc-detail"></div>
-<h4>方法二：双高点区间法</h4>
-<div id="method2Detail" class="calc-detail"></div>
-<h4>计算结果</h4>
+<h3>🔍 循环次数计算</h3>
+<div class="alert">连续时段只算一次：连续5小时谷 = 1次充电，连续5小时峰 = 1次放电</div>
+<div id="calcDetail" class="calc-detail"></div>
 <div class="result-box">
+<div>充电次数: <span class="value" id="chargeCount">0</span> 次</div>
+<div>放电次数: <span class="value" id="dischargeCount">0</span> 次</div>
 <div>日循环: <span class="value" id="dailyCycles">0</span> 次</div>
 <div>月循环: <span class="value" id="monthlyCycles">0</span> 次 (×27.5天)</div>
 <div>年循环: <span class="value" id="yearlyCycles">0</span> 次</div>
@@ -109,7 +109,7 @@ h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:
 </div>
 
 <script>
-// 2026年2月电价数据（固定）
+// 2026年2月电价数据
 const priceData={
 '安徽':{sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161},
 '北京':{sharp:1.1297,peak:1.1297,flat:0.8251,valley:0.5585,deep:0.5585},
@@ -144,7 +144,7 @@ const priceData={
 '广西':{sharp:1.0107,peak:1.0107,flat:0.8314,valley:0.6520,deep:0.6520}
 };
 
-// 12个月时段数据（按实际统计）
+// 12个月时段数据（需要补充完整）
 const timeSlotData={
 '安徽':{
 '1':{valley:[0,1,2,3,4,5,6,7],peak:[16,17,18,19,20,21,22,23]},
@@ -174,7 +174,7 @@ const timeSlotData={
 '11':{valley:[0,1,2,3,4,5,6,23],peak:[10,11,12,13,14,18,19,20]},
 '12':{valley:[0,1,2,3,4,5,6,23],peak:[10,11,12,13,14,18,19,20],sharp:[18,19,20]}
 }
-// ... 其他省份数据类似
+// 其他省份需要补充...
 };
 
 // 初始化省份下拉
@@ -198,17 +198,17 @@ const month=document.getElementById('monthSelect').value;
 if(!province)return;
 
 const price=priceData[province];
-const slots=timeSlotData[province]?.[month]||timeSlotData[province]?.['1'];
+const slots=timeSlotData[province]?.[month];
 
 if(!slots){
-alert('该省份暂无'+month+'月时段数据');
+alert('该省份'+month+'月数据正在补充中，请先测试安徽或北京');
 return;
 }
 
 document.getElementById('resultTitle').innerHTML=`<span class="month-badge">${month}月</span>${province} - 电价分析`;
 document.getElementById('resultSection').classList.remove('hidden');
 
-// 绘制电价柱状图
+// 绘制图表
 drawChart(province,month,price,slots);
 
 // 电价表格
@@ -220,16 +220,8 @@ document.querySelector('#priceTable tbody').innerHTML=`
 <tr><td class="price-low">深谷</td><td>${price.deep.toFixed(4)}</td></tr>
 `;
 
-// 时段显示
-document.getElementById('timeSlots').innerHTML=`
-<p><strong>低谷时段:</strong> ${slots.valley?slots.valley.map(h=>h+':00').join(', '):'-'}</p>
-<p><strong>高峰时段:</strong> ${slots.peak?slots.peak.map(h=>h+':00').join(', '):'-'}</p>
-<p><strong>尖峰时段:</strong> ${slots.sharp?slots.sharp.map(h=>h+':00').join(', '):'-'}</p>
-<p><strong>深谷时段:</strong> ${slots.deep?slots.deep.map(h=>h+':00').join(', '):'-'}</p>
-`;
-
-// 计算循环次数
-calcCycles(price,slots);
+// 计算连续时段
+calcContinuousSlots(price,slots);
 
 window.scrollTo({top:document.getElementById('resultSection').offsetTop-20,behavior:'smooth'});
 }
@@ -273,60 +265,65 @@ scales:{y:{beginAtZero:true,title:{display:true,text:'电价 (元/kWh)'}}}
 });
 }
 
-function calcCycles(price,slots){
-// 构建24小时时段序列
-const hourTypes=[];
-for(let h=0;h<24;h++){
-if(slots.deep?.includes(h))hourTypes.push({hour:h,type:'deep',price:price.deep});
-else if(slots.valley?.includes(h))hourTypes.push({hour:h,type:'valley',price:price.valley});
-else if(slots.sharp?.includes(h))hourTypes.push({hour:h,type:'sharp',price:price.sharp});
-else if(slots.peak?.includes(h))hourTypes.push({hour:h,type:'peak',price:price.peak});
-else hourTypes.push({hour:h,type:'flat',price:price.flat});
+function calcContinuousSlots(price,slots){
+// 找出连续的充电时段（深谷、低谷、平段）
+const chargeHours=[...(slots.deep||[]),...(slots.valley||[]),...(slots.flat||[])].sort((a,b)=>a-b);
+const dischargeHours=[...(slots.sharp||[]),...(slots.peak||[])].sort((a,b)=>a-b);
+
+// 计算连续段数
+const chargeSegments=getContinuousSegments(chargeHours);
+const dischargeSegments=getContinuousSegments(dischargeHours);
+
+// 显示连续时段
+let html='<h4>充电时段（连续算一次）</h4>';
+chargeSegments.forEach((seg,i)=>{
+html+=`<div class="continuous-box">第${i+1}段: ${seg[0]}:00-${seg[seg.length-1]+1}:00 (${seg.length}小时) - 充电1次</div>`;
+});
+
+html+='<h4>放电时段（连续算一次）</h4>';
+dischargeSegments.forEach((seg,i)=>{
+html+=`<div class="continuous-box">第${i+1}段: ${seg[0]}:00-${seg[seg.length-1]+1}:00 (${seg.length}小时) - 放电1次</div>`;
+});
+
+document.getElementById('continuousSlots').innerHTML=html;
+
+// 计算循环次数
+calcCycles(price,chargeSegments,dischargeSegments);
 }
 
-// 方法1：时间顺序遍历法
-let method1Cycles=0;
-const method1Pairs=[];
-const used=new Set();
-
-for(let i=0;i<hourTypes.length;i++){
-if(used.has(i))continue;
-const charge=hourTypes[i];
-if(charge.type==='deep'||charge.type==='valley'||charge.type==='flat'){
-for(let j=i+1;j<hourTypes.length;j++){
-if(used.has(j))continue;
-const discharge=hourTypes[j];
-if(discharge.type==='sharp'||discharge.type==='peak'){
-if(charge.price<discharge.price){
-method1Cycles++;
-method1Pairs.push(`${charge.type}(${charge.hour}:00)→${discharge.type}(${discharge.hour}:00)`);
-used.add(i);
-used.add(j);
-break;
+function getContinuousSegments(hours){
+if(hours.length===0)return [];
+const segments=[];
+let current=[hours[0]];
+for(let i=1;i<hours.length;i++){
+if(hours[i]===hours[i-1]+1){
+current.push(hours[i]);
+} else {
+segments.push([...current]);
+current=[hours[i]];
 }
 }
+segments.push(current);
+return segments;
 }
-}
-}
 
-document.getElementById('method1Detail').innerHTML=`<p>找到 ${method1Cycles} 个充放电匹配对：${method1Pairs.join('、')||'无'}</p>`;
-
-// 方法2：双高点区间法
-const highPoints=[];
-if(price.sharp)highPoints.push({type:'sharp',price:price.sharp});
-if(price.peak)highPoints.push({type:'peak',price:price.peak});
-
-let method2Cycles=highPoints.length>=2?2:(highPoints.length===1?1:0);
-
-document.getElementById('method2Detail').innerHTML=`<p>找到 ${highPoints.length} 个高点，可完成 ${method2Cycles} 次循环</p>`;
-
-// 最终结果
-const dailyCycles=Math.max(method1Cycles,method2Cycles);
+function calcCycles(price,chargeSegments,dischargeSegments){
+const chargeCount=chargeSegments.length;
+const dischargeCount=dischargeSegments.length;
+const dailyCycles=Math.min(chargeCount,dischargeCount);
 const yearly=dailyCycles*27.5*12;
 
+document.getElementById('chargeCount').textContent=chargeCount;
+document.getElementById('dischargeCount').textContent=dischargeCount;
 document.getElementById('dailyCycles').textContent=dailyCycles;
 document.getElementById('monthlyCycles').textContent=(dailyCycles*27.5).toFixed(1);
 document.getElementById('yearlyCycles').textContent=yearly.toFixed(1);
+
+document.getElementById('calcDetail').innerHTML=`
+<p>充电次数: ${chargeCount} 次（${chargeSegments.length}个连续时段）</p>
+<p>放电次数: ${dischargeCount} 次（${dischargeSegments.length}个连续时段）</p>
+<p>日循环 = min(充电,放电) = ${dailyCycles} 次</p>
+`;
 
 // 8种模式年循环次数
 const modes=[
