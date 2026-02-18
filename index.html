@@ -202,16 +202,18 @@ return p.flat;
 });
 
 priceChart=new Chart(ctx,{
-type:'line',
+type:'bar',
 data:{
 labels:hours.map(h=>h+':00'),
 datasets:[{
 label:'电价 (元/kWh)',
 data:prices,
 borderColor:'#667eea',
-backgroundColor:'rgba(102,126,234,0.1)',
-fill:true,
-tension:0.1,
+backgroundColor:'#667eea',
+fill:false,
+borderWidth:0,
+tension:0,
+barPercentage:0.8,
 pointRadius:3
 }]
 },
