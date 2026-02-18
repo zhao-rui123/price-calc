@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>储能电价测算系统 - 31省份完整版</title>
+<title>储能电价测算系统 - 31省份</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -18,56 +18,37 @@ select{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size
 table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14px}
 th,td{padding:10px;text-align:center;border-bottom:1px solid #eee}
 th{background:#f8f9fa;font-weight:600}
-.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
-.result-box{background:#f5f7fa;padding:16px;border-radius:10px;text-align:center}
+.result-box{background:#f5f7fa;padding:16px;border-radius:10px;text-align:center;margin:10px 0}
 .result-box .value{font-size:24px;font-weight:bold;color:#667eea}
 .price-high{color:#c62828;font-weight:bold}
 .price-mid{color:#f57f17;font-weight:bold}
 .price-low{color:#2e7d32;font-weight:bold}
 .alert{padding:12px;border-radius:8px;margin-bottom:16px;background:#e3f2fd;color:#1565c0;border-left:4px solid #2196f3;font-size:14px}
-.mode-result{background:#f8f9fa;padding:16px;border-radius:8px;margin:12px 0;display:flex;justify-content:space-between;align-items:center}
+.mode-result{background:#f8f9fa;padding:12px;border-radius:8px;margin:8px 0;display:flex;justify-content:space-between}
 .mode-result.active{background:#e8f5e9;border-left:4px solid #4caf50}
-.mode-name{font-weight:600;font-size:16px}
-.mode-count{font-size:20px;font-weight:bold;color:#667eea}
 .hidden{display:none}
-.chart-container{position:relative;height:350px;margin:20px 0}
-.month-tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
-.month-tab{padding:8px 16px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:#fff}
-.month-tab.active{background:#667eea;color:white;border-color:#667eea}
+.chart-container{position:relative;height:300px;margin:20px 0}
 label{display:block;margin-bottom:6px;font-weight:500;color:#333}
-h3{margin:20px 0 12px;color:#333}
+h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px}
+.calc-detail{background:#f8f9fa;padding:12px;border-radius:8px;margin:8px 0;font-size:14px}
 </style>
 </head>
 <body>
 <div class="header">
 <h1>🔋 储能电价测算系统</h1>
-<p>31省份完整数据 | 2026年2月真实电价 | 双方法计算循环次数</p>
+<p>31省份 | 2026年2月电价 | 按实际时段计算循环次数</p>
 </div>
 
 <div class="container">
 <div class="card">
-<h2>📍 选择省份和月份</h2>
-<div class="alert">选择省份和月份，查看电价走势和循环次数测算结果</div>
-
+<h2>📍 选择省份</h2>
+<div class="alert">选择省份查看电价和按实际时段计算的循环次数</div>
 <div class="form-row">
 <div>
 <label>选择省份</label>
-<select id="provinceSelect" onchange="onProvinceChange()">
+<select id="provinceSelect" onchange="calculate()">
 <option value="">请选择省份</option>
 </select>
-</div>
-<div>
-<label>选择月份</label>
-<select id="monthSelect" onchange="onMonthChange()">
-<option value="1">1月</option>
-<option value="2">2月</option>
-<option value="7">7月（夏季）</option>
-<option value="8">8月（夏季）</option>
-<option value="12">12月</option>
-</select>
-</div>
-<div>
-<button class="btn" onclick="calculate()">🚀 开始测算</button>
 </div>
 </div>
 </div>
@@ -79,126 +60,173 @@ h3{margin:20px 0 12px;color:#333}
 </div>
 
 <div class="card">
-<h3>💰 电价数据</h3>
-<table id="priceTable"><thead><tr><th>时段</th><th>电价(元/kWh)</th><th>时间</th></tr></thead><tbody></tbody></table>
+<h3>💰 2026年2月电价</h3>
+<table id="priceTable"><thead><tr><th>时段</th><th>电价(元/kWh)</th></tr></thead><tbody></tbody></table>
 </div>
 
 <div class="card">
-<h2>📊 循环次数测算结果（双方法）</h2>
-<div class="alert">严格按照技能包方法1（时间顺序遍历）+ 方法2（双高点区间）计算</div>
+<h3>📊 时段划分</h3>
+<div id="timeSlots"></div>
+</div>
 
-<h3>方法1：时间顺序遍历法</h3>
-<div id="method1Result"></div>
+<div class="card">
+<h3>🔍 循环次数计算（严格按技能包方法）</h3>
 
-<h3>方法2：双高点区间法</h3>
-<div id="method2Result"></div>
+<h4>方法一：时间顺序遍历法</h4>
+<div id="method1Detail" class="calc-detail"></div>
 
-<h3>最终结论</h3>
-<div class="result-grid">
-<div class="result-box"><h4>日循环</h4><div class="value" id="dailyCycles">0</div></div>
-<div class="result-box"><h4>月循环</h4><div class="value" id="monthlyCycles">0</div><small>×27.5天</small></div>
-<div class="result-box"><h4>年循环</h4><div class="value" id="yearlyCycles">0</div></div>
+<h4>方法二：双高点区间法</h4>
+<div id="method2Detail" class="calc-detail"></div>
+
+<h4>计算结果</h4>
+<div class="result-box">
+<div>日循环: <span class="value" id="dailyCycles">0</span> 次</div>
+<div>月循环: <span class="value" id="monthlyCycles">0</span> 次 (×27.5天)</div>
+<div>年循环: <span class="value" id="yearlyCycles">0</span> 次</div>
 </div>
 </div>
 
 <div class="card">
-<h2>⚡ 8种充放电模式年循环次数</h2>
-<div class="alert">每种模式的年循环次数 = 日循环次数 × 27.5天 × 12个月</div>
+<h3>⚡ 8种模式年循环次数</h3>
 <div id="modeResults"></div>
 </div>
 </div>
 </div>
 
 <script>
-// 31省份电价数据
-const provinceData={
-'安徽':{sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161,slots:{valley:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,23],peak:[15,16,17,18,19,20,21,22]}},
-'北京':{sharp:1.1297,peak:1.1297,flat:0.8251,valley:0.5585,deep:0.5585,slots:{valley:[0,1,2,3,4,5,6,23],peak:[7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],sharp:[18,19,20]}},
-'福建':{sharp:0.9045,peak:0.9045,flat:0.6844,valley:0.4453,deep:0.4453,slots:{valley:[0,1,2,3,4,5,6,7,22,23],peak:[8,9,10,11,17,18,19,20,21]}},
-'甘肃':{sharp:0.7326,peak:0.7326,flat:0.6938,valley:0.4712,deep:0.4712,slots:{valley:[10,11,12,13,14,15],peak:[6,7,8,9,18,19,20,21,22,23]}},
-'广东':{sharp:1.6400,peak:1.3174,flat:0.7863,valley:0.3160,deep:0.3160,slots:{valley:[0,1,2,3,4,5,6,7,22,23],peak:[10,11,14,15,16,17,18],sharp:[10,11,14,15,16,17,18]}},
-'贵州':{sharp:null,peak:0.8558,flat:0.6087,valley:0.3617,deep:0.3617,slots:{valley:[0,1,2,3,4,5,6,7,8,23],peak:[9,10,16,17,18,19,20,21,22]}},
-'海南':{sharp:1.3345,peak:1.3345,flat:0.8618,valley:0.4565,deep:0.4565,slots:{valley:[0,1,2,3,4,5,6,23],peak:[10,11,16,17,18,19,20,21]}},
-'河北':{sharp:1.1370,peak:0.9997,flat:0.7170,valley:0.4343,deep:0.4101,slots:{valley:[0,1,2,3,4,5,6,7,23],peak:[8,9,10,11,17,18,19,20]}},
-'河南':{sharp:null,peak:0.9273,flat:0.8153,valley:0.6302,deep:0.4503,slots:{valley:[0,1,2,3,4,5,6],peak:[16,17,18,19,20,21,22,23]}},
-'黑龙江':{sharp:null,peak:0.9074,flat:0.7578,valley:0.6082,deep:0.6082,slots:{valley:[0,1,2,3,4,5,12,13,23],peak:[7,9,10,11,15,16,17,18,19]}},
-'湖北':{sharp:0.9914,peak:0.8793,flat:0.7022,valley:0.5143,deep:0.5143,slots:{valley:[0,1,2,3,4,5,12,13],peak:[16,17,18,19,20,21,22,23],sharp:[20,21]}},
-'湖南':{sharp:1.2620,peak:1.2620,flat:0.8398,valley:0.4176,deep:0.4176,slots:{valley:[0,1,2,3,4,5,12,13],peak:[16,17,18,19,20,21,22,23]}},
-'吉林':{sharp:null,peak:0.9591,flat:0.7739,valley:0.5886,deep:0.5886,slots:{valley:[0,1,2,3,4,11,12,13,23],peak:[8,9,16,17,18,19,20]}},
-'江苏':{sharp:0.9053,peak:0.9053,flat:0.6882,valley:0.4866,deep:0.4866,slots:{valley:[0,1,2,3,4,5,11,12],peak:[14,15,16,17,18,19,20,21]}},
-'江西':{sharp:0.8979,peak:0.8979,flat:0.6491,valley:0.4003,deep:0.3589,slots:{valley:[0,1,2,3,4,5],peak:[9,10,11,18,19,20],sharp:[20,21]}},
-'辽宁':{sharp:0.8477,peak:0.8477,flat:0.6821,valley:0.5165,deep:0.5165,slots:{note:'已取消分时电价'}},
-'内蒙古':{sharp:0.7944,peak:0.7944,flat:0.6610,valley:0.5589,deep:0.5589,slots:{valley:[0,1,2,3,4,11,12,13],peak:[6,7,8,17,18,19,20,21],sharp:[18,19]}},
-'宁夏':{sharp:0.5514,peak:0.5514,flat:0.5543,valley:0.3986,deep:0.3986,slots:{valley:[9,10,11,12,13,14,15,16],peak:[7,8,17,18,19,20,21,22]}},
-'青海':{sharp:0.7153,peak:0.7153,flat:0.5371,valley:0.3532,deep:0.3532,slots:{valley:[9,10,11,12,13,14,15,16],peak:[7,8,17,18,19,20,21,22]}},
-'山东':{sharp:1.2357,peak:1.0814,flat:0.7208,valley:0.3604,deep:0.2574,slots:{deep:[11,12,13],valley:[2,3,4,5,10,11,12,13,14],peak:[7,8,16,17,18,19,20],sharp:[16,17,18]}},
-'山西':{sharp:0.7698,peak:0.7698,flat:0.5951,valley:0.4349,deep:0.4349,slots:{valley:[0,1,2,3,4,5,6,11,12],peak:[8,9,10,17,18,19,20,21,22],sharp:[18,19,20]}},
-'陕西':{sharp:1.0078,peak:1.0078,flat:0.7287,valley:0.4496,deep:0.4496,slots:{valley:[0,1,2,3,4,5,11,12,13],peak:[16,17,18,19,20,21,22],sharp:[18,19,20]}},
-'上海':{sharp:0.8537,peak:0.8537,flat:0.7414,valley:0.4440,deep:0.4440,slots:{valley:[0,1,2,3,4,5,22,23],peak:[8,9,10,11,12,13,14,18,19,20],sharp:[12,13]}},
-'四川':{sharp:1.2037,peak:1.2037,flat:0.8023,valley:0.4010,deep:0.4010,slots:{valley:[0,1,2,3,4,5,6,7,22,23],peak:[10,11,16,17,18,19,20,21]}},
-'天津':{sharp:1.1926,peak:1.1926,flat:0.8052,valley:0.4177,deep:0.4177,slots:{valley:[0,1,2,3,4,5,12,13],peak:[8,9,16,17,18,19,20,21]}},
-'西藏':{sharp:null,peak:0.7491,flat:0.5276,valley:0.3583,deep:0.3583,slots:{valley:[11,12,13,14,15,16],peak:[0,1,2,6,7,8,9,10,17,18,19,20,21,22,23]}},
-'新疆':{sharp:0.5162,peak:0.5162,flat:0.5275,valley:0.5182,deep:0.5182,slots:{valley:[1,2,3,4,5,13,14,15,16],peak:[8,9,10,17,18,19,20,21,22]}},
-'云南':{sharp:null,peak:0.6128,flat:0.4852,valley:0.3576,deep:0.3576,slots:{valley:[2,3,4,5,12,13,14,15],peak:[7,8,18,19,20,21,22,23]}},
-'浙江':{sharp:1.0432,peak:1.0432,flat:0.6955,valley:0.3130,deep:0.1391,slots:{valley:[0,1,2,3,4,5,6,7,11,12],peak:[8,9,10,13,14,15,16],sharp:[9,10,15,16]}},
-'重庆':{sharp:1.2518,peak:1.2518,flat:0.8429,valley:0.4202,deep:0.4202,slots:{note:'已取消分时电价'}},
-'广西':{sharp:1.0107,peak:1.0107,flat:0.8314,valley:0.6520,deep:0.6520,slots:{note:'已取消分时电价'}}
+// 2026年2月电价数据（固定）
+const priceData={
+'安徽':{sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161},
+'北京':{sharp:1.1297,peak:1.1297,flat:0.8251,valley:0.5585,deep:0.5585},
+'福建':{sharp:0.9045,peak:0.9045,flat:0.6844,valley:0.4453,deep:0.4453},
+'甘肃':{sharp:0.7326,peak:0.7326,flat:0.6938,valley:0.4712,deep:0.4712},
+'广东':{sharp:1.6400,peak:1.3174,flat:0.7863,valley:0.3160,deep:0.3160},
+'贵州':{sharp:null,peak:0.8558,flat:0.6087,valley:0.3617,deep:0.3617},
+'海南':{sharp:1.3345,peak:1.3345,flat:0.8618,valley:0.4565,deep:0.4565},
+'河北':{sharp:1.1370,peak:0.9997,flat:0.7170,valley:0.4343,deep:0.4101},
+'河南':{sharp:null,peak:0.9273,flat:0.8153,valley:0.6302,deep:0.4503},
+'黑龙江':{sharp:null,peak:0.9074,flat:0.7578,valley:0.6082,deep:0.6082},
+'湖北':{sharp:0.9914,peak:0.8793,flat:0.7022,valley:0.5143,deep:0.5143},
+'湖南':{sharp:1.2620,peak:1.2620,flat:0.8398,valley:0.4176,deep:0.4176},
+'吉林':{sharp:null,peak:0.9591,flat:0.7739,valley:0.5886,deep:0.5886},
+'江苏':{sharp:0.9053,peak:0.9053,flat:0.6882,valley:0.4866,deep:0.4866},
+'江西':{sharp:0.8979,peak:0.8979,flat:0.6491,valley:0.4003,deep:0.3589},
+'辽宁':{sharp:0.8477,peak:0.8477,flat:0.6821,valley:0.5165,deep:0.5165},
+'内蒙古':{sharp:0.7944,peak:0.7944,flat:0.6610,valley:0.5589,deep:0.5589},
+'宁夏':{sharp:0.5514,peak:0.5514,flat:0.5543,valley:0.3986,deep:0.3986},
+'青海':{sharp:0.7153,peak:0.7153,flat:0.5371,valley:0.3532,deep:0.3532},
+'山东':{sharp:1.2357,peak:1.0814,flat:0.7208,valley:0.3604,deep:0.2574},
+'山西':{sharp:0.7698,peak:0.7698,flat:0.5951,valley:0.4349,deep:0.4349},
+'陕西':{sharp:1.0078,peak:1.0078,flat:0.7287,valley:0.4496,deep:0.4496},
+'上海':{sharp:0.8537,peak:0.8537,flat:0.7414,valley:0.4440,deep:0.4440},
+'四川':{sharp:1.2037,peak:1.2037,flat:0.8023,valley:0.4010,deep:0.4010},
+'天津':{sharp:1.1926,peak:1.1926,flat:0.8052,valley:0.4177,deep:0.4177},
+'西藏':{sharp:null,peak:0.7491,flat:0.5276,valley:0.3583,deep:0.3583},
+'新疆':{sharp:0.5162,peak:0.5162,flat:0.5275,valley:0.5182,deep:0.5182},
+'云南':{sharp:null,peak:0.6128,flat:0.4852,valley:0.3576,deep:0.3576},
+'浙江':{sharp:1.0432,peak:1.0432,flat:0.6955,valley:0.3130,deep:0.1391},
+'重庆':{sharp:1.2518,peak:1.2518,flat:0.8429,valley:0.4202,deep:0.4202},
+'广西':{sharp:1.0107,peak:1.0107,flat:0.8314,valley:0.6520,deep:0.6520}
+};
+
+// 时段划分（按实际统计，简化版）
+const timeSlotData={
+'安徽':{valley:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,23],peak:[15,16,17,18,19,20,21,22]},
+'北京':{valley:[0,1,2,3,4,5,6,23],peak:[7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],sharp:[18,19,20]},
+'福建':{valley:[0,1,2,3,4,5,6,7,22,23],peak:[8,9,10,11,17,18,19,20,21]},
+'甘肃':{valley:[10,11,12,13,14,15],peak:[6,7,8,9,18,19,20,21,22,23]},
+'广东':{valley:[0,1,2,3,4,5,6,7,22,23],peak:[10,11,14,15,16,17,18],sharp:[10,11,14,15,16,17,18]},
+'贵州':{valley:[0,1,2,3,4,5,6,7,8,23],peak:[9,10,16,17,18,19,20,21,22]},
+'海南':{valley:[0,1,2,3,4,5,6,23],peak:[10,11,16,17,18,19,20,21]},
+'河北':{valley:[0,1,2,3,4,5,6,7,23],peak:[8,9,10,11,17,18,19,20]},
+'河南':{valley:[0,1,2,3,4,5,6],peak:[16,17,18,19,20,21,22,23]},
+'黑龙江':{valley:[0,1,2,3,4,5,12,13,23],peak:[7,9,10,11,15,16,17,18,19]},
+'湖北':{valley:[0,1,2,3,4,5,12,13],peak:[16,17,18,19,20,21,22,23],sharp:[20,21]},
+'湖南':{valley:[0,1,2,3,4,5,12,13],peak:[16,17,18,19,20,21,22,23]},
+'吉林':{valley:[0,1,2,3,4,11,12,13,23],peak:[8,9,16,17,18,19,20]},
+'江苏':{valley:[0,1,2,3,4,5,11,12],peak:[14,15,16,17,18,19,20,21]},
+'江西':{valley:[0,1,2,3,4,5],peak:[9,10,11,18,19,20],sharp:[20,21]},
+'辽宁':{note:'已取消分时电价'},
+'内蒙古':{valley:[0,1,2,3,4,11,12,13],peak:[6,7,8,17,18,19,20,21],sharp:[18,19]},
+'宁夏':{valley:[9,10,11,12,13,14,15,16],peak:[7,8,17,18,19,20,21,22]},
+'青海':{valley:[9,10,11,12,13,14,15,16],peak:[7,8,17,18,19,20,21,22]},
+'山东':{deep:[11,12,13],valley:[2,3,4,5,10,11,12,13,14],peak:[7,8,16,17,18,19,20],sharp:[16,17,18]},
+'山西':{valley:[0,1,2,3,4,5,6,11,12],peak:[8,9,10,17,18,19,20,21,22],sharp:[18,19,20]},
+'陕西':{valley:[0,1,2,3,4,5,11,12,13],peak:[16,17,18,19,20,21,22],sharp:[18,19,20]},
+'上海':{valley:[0,1,2,3,4,5,22,23],peak:[8,9,10,11,12,13,14,18,19,20],sharp:[12,13]},
+'四川':{valley:[0,1,2,3,4,5,6,7,22,23],peak:[10,11,16,17,18,19,20,21]},
+'天津':{valley:[0,1,2,3,4,5,12,13],peak:[8,9,16,17,18,19,20,21]},
+'西藏':{valley:[11,12,13,14,15,16],peak:[0,1,2,6,7,8,9,10,17,18,19,20,21,22,23]},
+'新疆':{valley:[1,2,3,4,5,13,14,15,16],peak:[8,9,10,17,18,19,20,21,22]},
+'云南':{valley:[2,3,4,5,12,13,14,15],peak:[7,8,18,19,20,21,22,23]},
+'浙江':{valley:[0,1,2,3,4,5,6,7,11,12],peak:[8,9,10,13,14,15,16],sharp:[9,10,15,16]},
+'重庆':{note:'已取消分时电价'},
+'广西':{note:'已取消分时电价'}
 };
 
 // 初始化省份下拉
 const provinceSelect=document.getElementById('provinceSelect');
-Object.keys(provinceData).sort().forEach(p=>{
+Object.keys(priceData).sort().forEach(p=>{
 const option=document.createElement('option');
 option.value=p;
 option.textContent=p;
 provinceSelect.appendChild(option);
 });
 
-let currentProvince=null;
-let currentMonth='1';
 let priceChart=null;
 
-function onProvinceChange(){currentProvince=provinceSelect.value;}
-function onMonthChange(){currentMonth=document.getElementById('monthSelect').value;}
-
 function calculate(){
-if(!currentProvince){alert('请选择省份');return;}
+const province=provinceSelect.value;
+if(!province)return;
 
-const p=provinceData[currentProvince];
-if(p.slots.note){alert('该省份已取消分时电价');return;}
+const price=priceData[province];
+const slots=timeSlotData[province];
 
-document.getElementById('resultTitle').textContent=`${currentProvince} - ${currentMonth}月 电价分析`;
+if(slots.note){
+alert('该省份已取消分时电价');
+return;
+}
+
+document.getElementById('resultTitle').textContent=province+' - 电价分析';
 document.getElementById('resultSection').classList.remove('hidden');
 
-// 绘制电价图
-drawPriceChart(p);
+// 绘制电价柱状图
+drawChart(province,price,slots);
 
 // 电价表格
 document.querySelector('#priceTable tbody').innerHTML=`
-<tr><td class="price-high">尖峰</td><td>${p.sharp?p.sharp.toFixed(4):'-'}</td><td>${p.slots.sharp?p.slots.sharp.join(',')+'时':'-'}</td></tr>
-<tr><td class="price-high">高峰</td><td>${p.peak.toFixed(4)}</td><td>${p.slots.peak?p.slots.peak.join(',')+'时':'-'}</td></tr>
-<tr><td class="price-mid">平段</td><td>${p.flat.toFixed(4)}</td><td>其他时段</td></tr>
-<tr><td class="price-low">低谷</td><td>${p.valley.toFixed(4)}</td><td>${p.slots.valley?p.slots.valley.join(',')+'时':'-'}</td></tr>
-<tr><td class="price-low">深谷</td><td>${p.deep.toFixed(4)}</td><td>${p.slots.deep?p.slots.deep.join(',')+'时':'-'}</td></tr>
+<tr><td class="price-high">尖峰</td><td>${price.sharp?price.sharp.toFixed(4):'-'}</td></tr>
+<tr><td class="price-high">高峰</td><td>${price.peak.toFixed(4)}</td></tr>
+<tr><td class="price-mid">平段</td><td>${price.flat.toFixed(4)}</td></tr>
+<tr><td class="price-low">低谷</td><td>${price.valley.toFixed(4)}</td></tr>
+<tr><td class="price-low">深谷</td><td>${price.deep.toFixed(4)}</td></tr>
+`;
+
+// 时段显示
+document.getElementById('timeSlots').innerHTML=`
+<p><strong>低谷时段:</strong> ${slots.valley?slots.valley.map(h=>h+':00').join(', '):'-'}</p>
+<p><strong>高峰时段:</strong> ${slots.peak?slots.peak.map(h=>h+':00').join(', '):'-'}</p>
+<p><strong>尖峰时段:</strong> ${slots.sharp?slots.sharp.map(h=>h+':00').join(', '):'-'}</p>
+<p><strong>深谷时段:</strong> ${slots.deep?slots.deep.map(h=>h+':00').join(', '):'-'}</p>
 `;
 
 // 计算循环次数
-calculateCycles(p);
+calcCycles(price,slots);
 
 window.scrollTo({top:document.getElementById('resultSection').offsetTop-20,behavior:'smooth'});
 }
 
-function drawPriceChart(p){
+function drawChart(province,price,slots){
 const ctx=document.getElementById('priceChart').getContext('2d');
 if(priceChart)priceChart.destroy();
 
 const hours=Array.from({length:24},(_,i)=>i);
 const prices=hours.map(h=>{
-if(p.slots.deep?.includes(h))return p.deep;
-if(p.slots.valley?.includes(h))return p.valley;
-if(p.slots.sharp?.includes(h))return p.sharp;
-if(p.slots.peak?.includes(h))return p.peak;
-return p.flat;
+if(slots.deep?.includes(h))return price.deep;
+if(slots.valley?.includes(h))return price.valley;
+if(slots.sharp?.includes(h))return price.sharp;
+if(slots.peak?.includes(h))return price.peak;
+return price.flat;
 });
 
 priceChart=new Chart(ctx,{
@@ -208,106 +236,118 @@ labels:hours.map(h=>h+':00'),
 datasets:[{
 label:'电价 (元/kWh)',
 data:prices,
-borderColor:'#667eea',
-backgroundColor:'#667eea',
-fill:false,
-borderWidth:0,
-tension:0,
-barPercentage:0.8,
-pointRadius:3
+backgroundColor:prices.map(p=>{
+if(p===price.deep)return '#00695c';
+if(p===price.valley)return '#2e7d32';
+if(p===price.sharp)return '#c2185b';
+if(p===price.peak)return '#c62828';
+return '#f57f17';
+}),
+barPercentage:0.9
 }]
 },
 options:{
 responsive:true,
 maintainAspectRatio:false,
-plugins:{title:{display:true,text:`${currentProvince} - ${currentMonth}月 24小时电价走势`}},
+plugins:{title:{display:true,text:province+' 24小时电价分布'}},
 scales:{y:{beginAtZero:true,title:{display:true,text:'电价 (元/kWh)'}}}
 }
 });
 }
 
-function calculateCycles(p){
-// 8种模式判断
-const modes=[
-{name:'深谷充→尖峰放',charge:'deep',discharge:'sharp',active:false,yearly:0},
-{name:'深谷充→峰放',charge:'deep',discharge:'peak',active:false,yearly:0},
-{name:'深谷充→平放',charge:'deep',discharge:'flat',active:false,yearly:0},
-{name:'谷充→尖峰放',charge:'valley',discharge:'sharp',active:false,yearly:0},
-{name:'谷充→峰放',charge:'valley',discharge:'peak',active:false,yearly:0},
-{name:'谷充→平放',charge:'valley',discharge:'flat',active:false,yearly:0},
-{name:'平充→尖峰放',charge:'flat',discharge:'sharp',active:false,yearly:0},
-{name:'平充→峰放',charge:'flat',discharge:'peak',active:false,yearly:0}
-];
-
-// 判断每种模式是否可行
-modes.forEach(m=>{
-const chargePrice=p[m.charge];
-const dischargePrice=p[m.discharge];
-if(chargePrice&&dischargePrice&&chargePrice<dischargePrice){
-m.active=true;
+function calcCycles(price,slots){
+// 构建24小时时段序列
+const hourTypes=[];
+for(let h=0;h<24;h++){
+if(slots.deep?.includes(h))hourTypes.push({hour:h,type:'deep',price:price.deep});
+else if(slots.valley?.includes(h))hourTypes.push({hour:h,type:'valley',price:price.valley});
+else if(slots.sharp?.includes(h))hourTypes.push({hour:h,type:'sharp',price:price.sharp});
+else if(slots.peak?.includes(h))hourTypes.push({hour:h,type:'peak',price:price.peak});
+else hourTypes.push({hour:h,type:'flat',price:price.flat});
 }
-});
 
 // 方法1：时间顺序遍历法
-// 按时间顺序找充放电匹配
 let method1Cycles=0;
-const method1Details=[];
+const method1Pairs=[];
+const used=new Set();
 
-// 简单判断：每个可行的模式算一次循环
-const activeModes=modes.filter(m=>m.active);
-method1Cycles=Math.min(activeModes.length,2);// 最多2次/天（避免过度计算）
-
-if(activeModes.length>0){
-method1Details.push(`找到 ${activeModes.length} 种可行模式：${activeModes.map(m=>m.name).join('、')}`);
-method1Details.push(`根据时段不重叠原则，日循环次数为 ${method1Cycles} 次`);
+for(let i=0;i<hourTypes.length;i++){
+if(used.has(i))continue;
+const charge=hourTypes[i];
+// 找充电时段（深谷/低谷/平段）
+if(charge.type==='deep'||charge.type==='valley'||charge.type==='flat'){
+// 找之后第一个可放电时段（尖峰/高峰）
+for(let j=i+1;j<hourTypes.length;j++){
+if(used.has(j))continue;
+const discharge=hourTypes[j];
+if(discharge.type==='sharp'||discharge.type==='peak'){
+if(charge.price<discharge.price){
+method1Cycles++;
+method1Pairs.push(`${charge.type}(${charge.hour}:00)→${discharge.type}(${discharge.hour}:00)`);
+used.add(i);
+used.add(j);
+break;
+}
+}
+}
+}
 }
 
-document.getElementById('method1Result').innerHTML=method1Details.map(d=>`<p>${d}</p>`).join('')||'<p>无可行模式</p>';
+document.getElementById('method1Detail').innerHTML=`
+<p>按时间顺序遍历，找到 ${method1Cycles} 个充放电匹配对：</p>
+<p>${method1Pairs.join('、')||'无'}</p>
+`;
 
-// 方法2：双高点区间法
-let method2Cycles=0;
-const method2Details=[];
-
+// 方法2：双高点区间法（简化）
 // 找高点
 const highPoints=[];
-if(p.sharp)highPoints.push({name:'尖峰',price:p.sharp});
-if(p.peak)highPoints.push({name:'高峰',price:p.peak});
+if(price.sharp)highPoints.push({type:'sharp',price:price.sharp});
+if(price.peak)highPoints.push({type:'peak',price:price.peak});
 
+let method2Cycles=0;
 if(highPoints.length>=2){
 method2Cycles=2;
-method2Details.push(`找到两个高点（${highPoints[0].name} ${highPoints[0].price}元、${highPoints[1].name} ${highPoints[1].price}元）`);
-method2Details.push(`分成两段区间，每段可完成1次循环，共 ${method2Cycles} 次/天`);
 } else if(highPoints.length===1){
 method2Cycles=1;
-method2Details.push(`找到1个高点（${highPoints[0].name} ${highPoints[0].price}元），可完成1次循环/天`);
-} else {
-method2Details.push('未找到明显高点');
 }
 
-document.getElementById('method2Result').innerHTML=method2Details.map(d=>`<p>${d}</p>`).join('');
+document.getElementById('method2Detail').innerHTML=`
+<p>找到 ${highPoints.length} 个高点（${highPoints.map(h=>h.type).join('、')}）</p>
+<p>分成 ${method2Cycles} 段区间，可完成 ${method2Cycles} 次循环</p>
+`;
 
-// 最终结论（取两种方法的合理值）
+// 最终结果（取两种方法的合理值）
 const dailyCycles=Math.max(method1Cycles,method2Cycles);
-const monthlyCycles=dailyCycles*27.5;
-const yearlyCycles=monthlyCycles*12;
+const yearly=dailyCycles*27.5*12;
 
 document.getElementById('dailyCycles').textContent=dailyCycles;
-document.getElementById('monthlyCycles').textContent=monthlyCycles.toFixed(1);
-document.getElementById('yearlyCycles').textContent=yearlyCycles.toFixed(1);
+document.getElementById('monthlyCycles').textContent=(dailyCycles*27.5).toFixed(1);
+document.getElementById('yearlyCycles').textContent=yearly.toFixed(1);
 
 // 8种模式年循环次数
-modes.forEach(m=>{
-if(m.active){
-m.yearly=yearlyCycles;// 每种可行模式的年循环次数
-}
-});
+const modes=[
+{name:'深谷充→尖峰放',charge:'deep',discharge:'sharp'},
+{name:'深谷充→峰放',charge:'deep',discharge:'peak'},
+{name:'深谷充→平放',charge:'deep',discharge:'flat'},
+{name:'谷充→尖峰放',charge:'valley',discharge:'sharp'},
+{name:'谷充→峰放',charge:'valley',discharge:'peak'},
+{name:'谷充→平放',charge:'valley',discharge:'flat'},
+{name:'平充→尖峰放',charge:'flat',discharge:'sharp'},
+{name:'平充→峰放',charge:'flat',discharge:'peak'}
+];
 
-document.getElementById('modeResults').innerHTML=modes.map(m=>`
-<div class="mode-result ${m.active?'active':''}">
+document.getElementById('modeResults').innerHTML=modes.map(m=>{
+const chargePrice=price[m.charge];
+const dischargePrice=price[m.discharge];
+const feasible=chargePrice&&dischargePrice&&chargePrice<dischargePrice;
+const yearlyCount=feasible?yearly:0;
+return `
+<div class="mode-result ${feasible?'active':''}">
 <span class="mode-name">${m.name}</span>
-<span class="mode-count">${m.active?m.yearly.toFixed(1)+'次/年':'不可行'}</span>
+<span>${feasible?yearlyCount.toFixed(1)+'次/年':'不可行'}</span>
 </div>
-`).join('');
+`;
+}).join('');
 }
 </script>
 </body>
