@@ -86,10 +86,12 @@ const monthly=m.daily*27.5;
 totalCycles+=monthly;
 
 if(m.type==='谷-峰'){
+// 纯谷-峰月份，全部算谷-峰
 guFengCycles+=monthly;
 }else{
-guFengCycles+=27.5;// 谷-峰部分
-pingFengCycles+=27.5;// 平-峰部分
+// 谷-峰+平-峰月份，各算27.5次
+guFengCycles+=27.5;
+pingFengCycles+=27.5;
 }
 
 monthList.innerHTML+=`
