@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>储能电价测算系统 - 31省份完整版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;background:#f5f7fa;min-height:100vh}
+.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:30px 20px;text-align:center}
+.header h1{font-size:32px;margin-bottom:10px}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.1)}
+.province-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin:20px 0}
+.province-btn{background:#fff;border:2px solid #e0e0e0;padding:10px;border-radius:8px;cursor:pointer;text-align:center;transition:all 0.3s;font-size:14px}
+.province-btn:hover,.province-btn.active{border-color:#667eea;background:#667eea;color:white}
+table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14px}
+th,td{padding:10px;text-align:center;border-bottom:1px solid #eee}
+th{background:#f8f9fa;font-weight:600}
+.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
+.result-box{background:#f5f7fa;padding:16px;border-radius:10px;text-align:center}
+.result-box .value{font-size:24px;font-weight:bold;color:#667eea}
+.price-high{color:#c62828;font-weight:bold}
+.price-mid{color:#f57f17;font-weight:bold}
+.price-low{color:#2e7d32;font-weight:bold}
+.alert{padding:12px;border-radius:8px;margin-bottom:16px;background:#e3f2fd;color:#1565c0;border-left:4px solid #2196f3;font-size:14px}
+.mode-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:12px}
+.mode-item{background:#f8f9fa;padding:10px;border-radius:6px;display:flex;justify-content:space-between;font-size:13px}
+.mode-item.active{background:#e8f5e9;border-left:3px solid #4caf50}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>🔋 储能电价测算系统</h1>
+<p>31省份完整数据 | 2026年2月真实电价 | 月循环=日循环×27.5天</p>
+</div>
+
+<div class="container">
+<div class="card">
+<h2>📍 选择省份（31个）</h2>
+<div class="alert">点击省份查看电价数据和循环次数测算</div>
+<div class="province-grid" id="provinceList"></div>
+</div>
+
+<div id="detailSection" class="hidden">
+<div class="card">
+<h2 id="provinceTitle"></h2>
+<table id="priceTable"><thead><tr><th>时段</th><th>电价(元/kWh)</th><th>说明</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="card">
+<h2>📊 循环次数测算</h2>
+<div class="alert">月循环 = 日循环 × 27.5天 | 年循环 = 月循环 × 12个月</div>
+<div class="result-grid">
+<div class="result-box"><h4>日循环</h4><div class="value" id="dailyCycles">0</div></div>
+<div class="result-box"><h4>月循环</h4><div class="value" id="monthlyCycles">0</div><small>×27.5天</small></div>
+<div class="result-box"><h4>年循环</h4><div class="value" id="yearlyCycles">0</div></div>
+</div>
+</div>
+
+<div class="card">
+<h2>⚡ 8种充放电模式</h2>
+<div class="mode-list" id="modeList"></div>
+</div>
+</div>
+</div>
+
+<script>
+const provinceData=[
+{name:'安徽',sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161},
+{name:'北京',sharp:1.1297,peak:1.1297,flat:0.8251,valley:0.5585,deep:0.5585},
+{name:'福建',sharp:0.9045,peak:0.9045,flat:0.6844,valley:0.4453,deep:0.4453},
+{name:'甘肃',sharp:0.7326,peak:0.7326,flat:0.6938,valley:0.4712,deep:0.4712},
+{name:'广东',sharp:1.6400,peak:1.3174,flat:0.7863,valley:0.3160,deep:0.3160},
+{name:'贵州',sharp:null,peak:0.8558,flat:0.6087,valley:0.3617,deep:0.3617},
+{name:'海南',sharp:1.3345,peak:1.3345,flat:0.8618,valley:0.4565,deep:0.4565},
+{name:'河北',sharp:1.1370,peak:0.9997,flat:0.7170,valley:0.4343,deep:0.4101},
+{name:'河南',sharp:null,peak:0.9273,flat:0.8153,valley:0.6302,deep:0.4503},
+{name:'黑龙江',sharp:null,peak:0.9074,flat:0.7578,valley:0.6082,deep:0.6082},
+{name:'湖北',sharp:0.9914,peak:0.8793,flat:0.7022,valley:0.5143,deep:0.5143},
+{name:'湖南',sharp:1.2620,peak:1.2620,flat:0.8398,valley:0.4176,deep:0.4176},
+{name:'吉林',sharp:null,peak:0.9591,flat:0.7739,valley:0.5886,deep:0.5886},
+{name:'江苏',sharp:0.9053,peak:0.9053,flat:0.6882,valley:0.4866,deep:0.4866},
+{name:'江西',sharp:0.8979,peak:0.8979,flat:0.6491,valley:0.4003,deep:0.3589},
+{name:'辽宁',sharp:0.8477,peak:0.8477,flat:0.6821,valley:0.5165,deep:0.5165},
+{name:'内蒙古',sharp:0.7944,peak:0.7944,flat:0.6610,valley:0.5589,deep:0.5589},
+{name:'宁夏',sharp:0.5514,peak:0.5514,flat:0.5543,valley:0.3986,deep:0.3986},
+{name:'青海',sharp:0.7153,peak:0.7153,flat:0.5371,valley:0.3532,deep:0.3532},
+{name:'山东',sharp:1.2357,peak:1.0814,flat:0.7208,valley:0.3604,deep:0.2574},
+{name:'山西',sharp:0.7698,peak:0.7698,flat:0.5951,valley:0.4349,deep:0.4349},
+{name:'陕西',sharp:1.0078,peak:1.0078,flat:0.7287,valley:0.4496,deep:0.4496},
+{name:'上海',sharp:0.8537,peak:0.8537,flat:0.7414,valley:0.4440,deep:0.4440},
+{name:'四川',sharp:1.2037,peak:1.2037,flat:0.8023,valley:0.4010,deep:0.4010},
+{name:'天津',sharp:1.1926,peak:1.1926,flat:0.8052,valley:0.4177,deep:0.4177},
+{name:'西藏',sharp:null,peak:0.7491,flat:0.5276,valley:0.3583,deep:0.3583},
+{name:'新疆',sharp:0.5162,peak:0.5162,flat:0.5275,valley:0.5182,deep:0.5182},
+{name:'云南',sharp:null,peak:0.6128,flat:0.4852,valley:0.3576,deep:0.3576},
+{name:'浙江',sharp:1.0432,peak:1.0432,flat:0.6955,valley:0.3130,deep:0.1391},
+{name:'重庆',sharp:1.2518,peak:1.2518,flat:0.8429,valley:0.4202,deep:0.4202},
+{name:'广西',sharp:1.0107,peak:1.0107,flat:0.8314,valley:0.6520,deep:0.6520}
+];
+
+document.getElementById('provinceList').innerHTML=provinceData.map(p=>
+`<button class="province-btn" onclick="selectProvince('${p.name}')" id="btn-${p.name}">${p.name}</button>`
+).join('');
+
+function selectProvince(name){
+document.querySelectorAll('.province-btn').forEach(b=>b.classList.remove('active'));
+document.getElementById('btn-'+name).classList.add('active');
+const p=provinceData.find(x=>x.name===name);
+if(!p)return;
+
+document.getElementById('provinceTitle').textContent=name+' - 2026年2月电价';
+document.getElementById('detailSection').classList.remove('hidden');
+
+document.querySelector('#priceTable tbody').innerHTML=`
+<tr><td class="price-high">尖峰</td><td>${p.sharp?p.sharp.toFixed(4):'-'}</td><td>最高电价</td></tr>
+<tr><td class="price-high">高峰</td><td>${p.peak.toFixed(4)}</td><td>用电高峰</td></tr>
+<tr><td class="price-mid">平段</td><td>${p.flat.toFixed(4)}</td><td>正常用电</td></tr>
+<tr><td class="price-low">低谷</td><td>${p.valley.toFixed(4)}</td><td>用电低谷</td></tr>
+<tr><td class="price-low">深谷</td><td>${p.deep.toFixed(4)}</td><td>最低电价</td></tr>
+`;
+
+let daily=0;
+const modes=[];
+if(p.deep<p.peak){daily++;modes.push({name:'深谷充→峰放',active:true});}
+else{modes.push({name:'深谷充→峰放',active:false});}
+if(p.valley<p.peak){daily++;modes.push({name:'谷充→峰放',active:true});}
+else{modes.push({name:'谷充→峰放',active:false});}
+if(p.flat<p.peak){daily++;modes.push({name:'平充→峰放',active:true});}
+else{modes.push({name:'平充→峰放',active:false});}
+modes.push({name:'深谷充→尖峰放',active:p.deep<(p.sharp||p.peak)});
+modes.push({name:'谷充→尖峰放',active:p.valley<(p.sharp||p.peak)});
+modes.push({name:'平充→尖峰放',active:p.flat<(p.sharp||p.peak)});
+modes.push({name:'深谷充→平放',active:p.deep<p.flat});
+modes.push({name:'谷充→平放',active:p.valley<p.flat});
+
+document.getElementById('dailyCycles').textContent=daily;
+document.getElementById('monthlyCycles').textContent=(daily*27.5).toFixed(1);
+document.getElementById('yearlyCycles').textContent=(daily*27.5*12).toFixed(1);
+
+document.getElementById('modeList').innerHTML=modes.map(m=>`
+<div class="mode-item ${m.active?'active':''}"><span>${m.name}</span><span>${m.active?'✓':'✗'}</span></div>
+`).join('');
+
+window.scrollTo({top:document.getElementById('detailSection').offsetTop-20,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
