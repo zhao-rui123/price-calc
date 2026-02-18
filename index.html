@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>储能电价测算系统 - 严格按技能包方法</title>
+<title>储能电价测算系统 - 安徽12个月</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -14,14 +14,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',s
 .card{background:white;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,0.1)}
 .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:20px 0;align-items:end}
 select{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:#fff}
-.btn{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:14px 36px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:500;width:100%}
 .result-box{background:#f5f7fa;padding:16px;border-radius:10px;text-align:center;margin:10px 0}
 .result-box .value{font-size:28px;font-weight:bold;color:#667eea}
 .alert{padding:12px;border-radius:8px;margin-bottom:16px;background:#e3f2fd;color:#1565c0;border-left:4px solid #2196f3;font-size:14px}
-.method-box{background:#f8f9fa;padding:16px;border-radius:8px;margin:12px 0}
-.method-box h4{color:#667eea;margin-bottom:8px}
-.cycle-pair{background:#e8f5e9;padding:8px 12px;border-radius:6px;margin:4px 0;display:inline-block;margin-right:8px}
-.hidden{display:none}
+.cycle-detail{background:#e8f5e9;padding:12px;border-radius:8px;margin:8px 0}
+.month-badge{display:inline-block;padding:4px 12px;border-radius:4px;background:#667eea;color:white;font-size:12px;margin-right:8px}
 label{display:block;margin-bottom:6px;font-weight:500;color:#333}
 h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:8px}
 </style>
@@ -29,17 +26,28 @@ h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:
 <body>
 <div class="header">
 <h1>🔋 储能电价测算系统</h1>
-<p>严格按技能包方法1+方法2计算 | 连续时段只算一次</p>
+<p>安徽12个月 | 2026年2月电价 | 正确计算循环次数</p>
 </div>
 
 <div class="container">
 <div class="card">
-<h2>📍 选择省份</h2>
+<h2>📍 选择月份</h2>
 <div class="form-row">
 <div>
-<label>选择省份</label>
-<select id="provinceSelect" onchange="calculate()">
-<option value="">请选择省份</option>
+<label>选择月份</label>
+<select id="monthSelect" onchange="calculate()">
+<option value="1">1月</option>
+<option value="2">2月</option>
+<option value="3">3月</option>
+<option value="4">4月</option>
+<option value="5">5月</option>
+<option value="6">6月</option>
+<option value="7">7月</option>
+<option value="8">8月</option>
+<option value="9">9月</option>
+<option value="10">10月</option>
+<option value="11">11月</option>
+<option value="12">12月</option>
 </select>
 </div>
 </div>
@@ -47,18 +55,8 @@ h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:
 
 <div id="resultSection" class="hidden">
 <div class="card">
-<h3>📊 循环次数计算结果</h3>
-
-<div class="method-box">
-<h4>方法一：时间顺序遍历法</h4>
-<div id="method1Result"></div>
-</div>
-
-<div class="method-box">
-<h4>方法二：双高点区间法</h4>
-<div id="method2Result"></div>
-</div>
-
+<h2 id="resultTitle"></h2>
+<div class="cycle-detail" id="cycleDetail"></div>
 <div class="result-box">
 <div>日循环: <span class="value" id="dailyCycles">0</span> 次</div>
 <div>月循环: <span class="value" id="monthlyCycles">0</span> 次 (×27.5天)</div>
@@ -67,175 +65,121 @@ h3{margin:20px 0 12px;color:#333;border-bottom:2px solid #667eea;padding-bottom:
 </div>
 
 <div class="card">
-<h3>⚡ 8种模式年循环次数</h3>
+<h3>⚡ 各模式年循环次数</h3>
 <div id="modeResults"></div>
 </div>
 </div>
 </div>
 
 <script>
-// 2026年2月电价数据
-const priceData={
-'安徽':{sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161},
-'北京':{sharp:1.1297,peak:1.1297,flat:0.8251,valley:0.5585,deep:0.5585},
-'福建':{sharp:0.9045,peak:0.9045,flat:0.6844,valley:0.4453,deep:0.4453},
-'广东':{sharp:1.6400,peak:1.3174,flat:0.7863,valley:0.3160,deep:0.3160},
-'河北':{sharp:1.1370,peak:0.9997,flat:0.7170,valley:0.4343,deep:0.4101},
-'河南':{sharp:null,peak:0.9273,flat:0.8153,valley:0.6302,deep:0.4503},
-'湖北':{sharp:0.9914,peak:0.8793,flat:0.7022,valley:0.5143,deep:0.5143},
-'湖南':{sharp:1.2620,peak:1.2620,flat:0.8398,valley:0.4176,deep:0.4176},
-'江苏':{sharp:0.9053,peak:0.9053,flat:0.6882,valley:0.4866,deep:0.4866},
-'江西':{sharp:0.8979,peak:0.8979,flat:0.6491,valley:0.4003,deep:0.3589},
-'山东':{sharp:1.2357,peak:1.0814,flat:0.7208,valley:0.3604,deep:0.2574},
-'山西':{sharp:0.7698,peak:0.7698,flat:0.5951,valley:0.4349,deep:0.4349},
-'陕西':{sharp:1.0078,peak:1.0078,flat:0.7287,valley:0.4496,deep:0.4496},
-'上海':{sharp:0.8537,peak:0.8537,flat:0.7414,valley:0.4440,deep:0.4440},
-'四川':{sharp:1.2037,peak:1.2037,flat:0.8023,valley:0.4010,deep:0.4010},
-'天津':{sharp:1.1926,peak:1.1926,flat:0.8052,valley:0.4177,deep:0.4177},
-'浙江':{sharp:1.0432,peak:1.0432,flat:0.6955,valley:0.3130,deep:0.1391}
-};
+// 安徽2026年2月电价
+const anhuiPrice={sharp:null,peak:1.0235,flat:0.6380,valley:0.3161,deep:0.3161};
 
-// 时段数据（连续时段）
-const timeSlotData={
-'安徽':{
-charge:[{type:'valley',start:0,end:8,price:0.3161}],
-discharge:[{type:'peak',start:15,end:23,price:1.0235}]
+// 安徽12个月时段数据（按您给的逻辑）
+const anhuiData={
+'1':{
+charge:[{type:'valley',start:0,end:8}],
+discharge:[{type:'peak',start:15,end:23}],
+cycles:1,
+detail:'低谷0-8时，高峰15-23时 → 谷-峰 1次循环'
 },
-'北京':{
-charge:[{type:'valley',start:0,end:7,price:0.5585}],
-discharge:[{type:'peak',start:10,end:22,price:1.1297},{type:'sharp',start:18,end:20,price:1.1297}]
+'2':{
+charge:[{type:'valley',start:0,end:8}],
+discharge:[{type:'peak',start:15,end:23}],
+cycles:1,
+detail:'低谷0-8时，高峰15-23时 → 谷-峰 1次循环'
 },
-'广东':{
-charge:[{type:'valley',start:0,end:8,price:0.3161},{type:'valley',start:22,end:23,price:0.3161}],
-discharge:[{type:'peak',start:10,end:19,price:1.3174},{type:'sharp',start:10,end:19,price:1.6400}]
+'3':{
+charge:[{type:'valley',start:0,end:6},{type:'flat',start:6,end:16}],
+discharge:[{type:'peak',start:16,end:23}],
+cycles:2,
+detail:'低谷0-6时，平段6-16时，高峰16-23时 → 谷-峰1，平-峰2，2次循环'
 },
-'河北':{
-charge:[{type:'valley',start:0,end:8,price:0.4343},{type:'deep',start:0,end:8,price:0.4101}],
-discharge:[{type:'peak',start:8,end:12,price:0.9997},{type:'peak',start:17,end:21,price:0.9997},{type:'sharp',start:17,end:21,price:1.1370}]
+'4':{
+charge:[{type:'valley',start:0,end:6},{type:'flat',start:6,end:16}],
+discharge:[{type:'peak',start:16,end:23}],
+cycles:2,
+detail:'低谷0-6时，平段6-16时，高峰16-23时 → 谷-峰1，平-峰2，2次循环'
 },
-'河南':{
-charge:[{type:'valley',start:0,end:7,price:0.6302},{type:'deep',start:0,end:7,price:0.4503}],
-discharge:[{type:'peak',start:16,end:23,price:0.9273}]
+'5':{
+charge:[{type:'valley',start:0,end:6},{type:'flat',start:6,end:16}],
+discharge:[{type:'peak',start:16,end:23}],
+cycles:2,
+detail:'低谷0-6时，平段6-16时，高峰16-23时 → 谷-峰1，平-峰2，2次循环'
 },
-'湖北':{
-charge:[{type:'valley',start:0,end:6,price:0.5143},{type:'valley',start:12,end:14,price:0.5143}],
-discharge:[{type:'peak',start:16,end:23,price:0.8793},{type:'sharp',start:20,end:22,price:0.9914}]
+'6':{
+charge:[{type:'valley',start:0,end:6},{type:'flat',start:6,end:16}],
+discharge:[{type:'peak',start:16,end:23}],
+cycles:2,
+detail:'低谷0-6时，平段6-16时，高峰16-23时 → 谷-峰1，平-峰2，2次循环'
 },
-'湖南':{
-charge:[{type:'valley',start:0,end:6,price:0.4176},{type:'valley',start:12,end:14,price:0.4176}],
-discharge:[{type:'peak',start:16,end:23,price:1.2620}]
+'7':{
+charge:[{type:'valley',start:0,end:8}],
+discharge:[{type:'peak',start:16,end:24}],
+cycles:1,
+detail:'低谷0-8时，高峰16-24时 → 谷-峰 1次循环'
 },
-'江苏':{
-charge:[{type:'valley',start:0,end:6,price:0.4866},{type:'valley',start:11,end:13,price:0.4866}],
-discharge:[{type:'peak',start:14,end:22,price:0.9053}]
+'8':{
+charge:[{type:'valley',start:0,end:8}],
+discharge:[{type:'peak',start:16,end:24}],
+cycles:1,
+detail:'低谷0-8时，高峰16-24时 → 谷-峰 1次循环'
 },
-'江西':{
-charge:[{type:'valley',start:0,end:6,price:0.4003},{type:'deep',start:0,end:6,price:0.3589}],
-discharge:[{type:'peak',start:9,end:12,price:0.8979},{type:'peak',start:18,end:21,price:0.8979},{type:'sharp',start:20,end:22,price:0.8979}]
+'9':{
+charge:[{type:'valley',start:0,end:8}],
+discharge:[{type:'peak',start:16,end:24}],
+cycles:1,
+detail:'低谷0-8时，高峰16-24时 → 谷-峰 1次循环'
 },
-'山东':{
-charge:[{type:'deep',start:11,end:14,price:0.2574},{type:'valley',start:2,end:6,price:0.3604},{type:'valley',start:10,end:15,price:0.3604}],
-discharge:[{type:'peak',start:7,end:9,price:1.0814},{type:'peak',start:16,end:21,price:1.0814},{type:'sharp',start:16,end:19,price:1.2357}]
+'10':{
+charge:[{type:'valley',start:0,end:6},{type:'flat',start:6,end:16}],
+discharge:[{type:'peak',start:16,end:23}],
+cycles:2,
+detail:'低谷0-6时，平段6-16时，高峰16-23时 → 谷-峰1，平-峰2，2次循环'
+},
+'11':{
+charge:[{type:'valley',start:0,end:6},{type:'flat',start:6,end:16}],
+discharge:[{type:'peak',start:16,end:23}],
+cycles:2,
+detail:'低谷0-6时，平段6-16时，高峰16-23时 → 谷-峰1，平-峰2，2次循环'
+},
+'12':{
+charge:[{type:'valley',start:0,end:8}],
+discharge:[{type:'peak',start:15,end:23}],
+cycles:1,
+detail:'低谷0-8时，高峰15-23时 → 谷-峰 1次循环'
 }
 };
-
-// 初始化省份下拉
-const provinceSelect=document.getElementById('provinceSelect');
-Object.keys(priceData).sort().forEach(p=>{
-const option=document.createElement('option');
-option.value=p;
-option.textContent=p;
-provinceSelect.appendChild(option);
-});
 
 function calculate(){
-const province=provinceSelect.value;
-if(!province)return;
+const month=document.getElementById('monthSelect').value;
+const data=anhuiData[month];
+const price=anhuiPrice;
 
-const price=priceData[province];
-const slots=timeSlotData[province];
-
-if(!slots){
-alert('该省份数据正在补充中');
-return;
-}
-
+document.getElementById('resultTitle').innerHTML=`<span class="month-badge">${month}月</span>安徽 - 电价分析`;
 document.getElementById('resultSection').classList.remove('hidden');
 
-// 方法1：时间顺序遍历法
-const method1Result=calcMethod1(slots);
-document.getElementById('method1Result').innerHTML=`
-<p>找到 ${method1Result.cycles} 个充放电匹配对：</p>
-<div>${method1Result.pairs.map(p=>`<span class="cycle-pair">${p}</span>`).join('')}</div>
-`;
+document.getElementById('cycleDetail').textContent=data.detail;
 
-// 方法2：双高点区间法
-const method2Result=calcMethod2(slots);
-document.getElementById('method2Result').innerHTML=`
-<p>找到 ${method2Result.highPoints} 个高点，分成 ${method2Result.intervals} 段区间</p>
-<p>可完成 ${method2Result.cycles} 次循环</p>
-`;
-
-// 最终结果
-const dailyCycles=Math.max(method1Result.cycles,method2Result.cycles);
+const dailyCycles=data.cycles;
 const yearly=dailyCycles*27.5*12;
 
 document.getElementById('dailyCycles').textContent=dailyCycles;
 document.getElementById('monthlyCycles').textContent=(dailyCycles*27.5).toFixed(1);
 document.getElementById('yearlyCycles').textContent=yearly.toFixed(1);
 
-// 8种模式年循环次数
-const modes=[
-{name:'深谷充→尖峰放',charge:'deep',discharge:'sharp'},
-{name:'深谷充→峰放',charge:'deep',discharge:'peak'},
-{name:'谷充→尖峰放',charge:'valley',discharge:'sharp'},
-{name:'谷充→峰放',charge:'valley',discharge:'peak'}
-];
-
-document.getElementById('modeResults').innerHTML=modes.map(m=>{
-const hasCharge=slots.charge.some(c=>c.type===m.charge);
-const hasDischarge=slots.discharge.some(d=>d.type===m.discharge);
-const feasible=hasCharge&&hasDischarge;
-const yearlyCount=feasible?yearly:0;
-return `<div style="background:${feasible?'#e8f5e9':'#f8f9fa'};padding:12px;border-radius:8px;margin:8px 0;display:flex;justify-content:space-between">
-<span>${m.name}</span>
-<span style="font-weight:bold;color:${feasible?'#667eea':'#999'}">${feasible?yearlyCount.toFixed(1)+'次/年':'不可行'}</span>
-</div>`;
-}).join('');
+// 模式年循环次数
+document.getElementById('modeResults').innerHTML=`
+<div style="background:#e8f5e9;padding:12px;border-radius:8px;margin:8px 0;display:flex;justify-content:space-between">
+<span>谷→峰</span><span style="font-weight:bold">${data.charge.some(c=>c.type==='valley')?yearly.toFixed(1):'0'}次/年</span>
+</div>
+<div style="background:${data.charge.some(c=>c.type==='flat')?'#e8f5e9':'#f8f9fa'};padding:12px;border-radius:8px;margin:8px 0;display:flex;justify-content:space-between">
+<span>平→峰</span><span style="font-weight:bold">${data.charge.some(c=>c.type==='flat')?yearly.toFixed(1):'0'}次/年</span>
+</div>
+`;
 }
 
-function calcMethod1(slots){
-// 按时间顺序匹配：充电时段匹配之后的放电时段
-const pairs=[];
-const usedDischarge=new Set();
-
-// 遍历充电时段
-for(const charge of slots.charge){
-// 找充电时段之后第一个可放电时段
-for(let i=0;i<slots.discharge.length;i++){
-if(usedDischarge.has(i))continue;
-const discharge=slots.discharge[i];
-// 检查放电时段是否在充电时段之后
-if(discharge.start>charge.end){
-if(charge.price<discharge.price){
-pairs.push(`${charge.type}→${discharge.type}`);
-usedDischarge.add(i);
-break;
-}
-}
-}
-}
-
-return {cycles:pairs.length,pairs};
-}
-
-function calcMethod2(slots){
-// 找高点（放电时段）
-const highPoints=slots.discharge.length;
-const intervals=Math.max(0,highPoints-1);
-const cycles=intervals>0?intervals:0;
-return {highPoints,intervals,cycles};
-}
+calculate();
 </script>
 </body>
 </html>
